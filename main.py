@@ -3,136 +3,130 @@ import sys
 from algorithms import dfs, bfs, ucs, dijkstra, a_star
 from node import Node
 
-# Settings
-WIDTH = 600
-ROWS = 30
-WIN = pygame.display.set_mode((WIDTH, WIDTH))
-pygame.display.set_caption("Pathfinding Visualization")
+# Constants
+GRID_SIZE = 30
+SCREEN_SIZE = 600
+SCREEN = pygame.display.set_mode((SCREEN_SIZE, SCREEN_SIZE))
+pygame.display.set_caption("Pathfinding Visualizer")
 
 # Colors
-WHITE = (255, 255, 255)
-BLACK = (0, 0, 0)
+COLOR_BG = (255, 255, 255)
+COLOR_GRID = (0, 0, 0)
 
-# Helper Functions
-def make_grid(rows, width):
-    grid = []
-    gap = width // rows
-    for i in range(rows):
-        grid.append([])
-        for j in range(rows):
-            node = Node(i, j, gap, rows)
-            grid[i].append(node)
-    return grid
+# Create the grid structure
+def build_grid(size, dimension):
+    spacing = dimension // size
+    return [[Node(row, col, spacing, size) for col in range(size)] for row in range(size)]
 
-def draw_grid(win, rows, width):
-    gap = width // rows
-    for i in range(rows):
-        pygame.draw.line(win, BLACK, (0, i * gap), (width, i * gap))
-        pygame.draw.line(win, BLACK, (i * gap, 0), (i * gap, width))
+# Draw grid lines
+def render_gridlines(display, size, dimension):
+    spacing = dimension // size
+    for line in range(size):
+        pygame.draw.line(display, COLOR_GRID, (0, line * spacing), (dimension, line * spacing))
+        pygame.draw.line(display, COLOR_GRID, (line * spacing, 0), (line * spacing, dimension))
 
-def draw(win, grid, rows, width):
-    win.fill(WHITE)
+# Display elements and grid
+def render(display, grid, size, dimension):
+    display.fill(COLOR_BG)
     for row in grid:
-        for node in row:
-            node.draw(win)
-    draw_grid(win, rows, width)
+        for cell in row:
+            cell.draw(display)
+    render_gridlines(display, size, dimension)
     pygame.display.update()
 
-def get_clicked_pos(pos, rows, width):
-    gap = width // rows
-    x, y = pos
-    row = min(rows - 1, y // gap)  # Ensure row index is within bounds
-    col = min(rows - 1, x // gap)  # Ensure col index is within bounds
-    return row, col
+# Calculate grid coordinates from mouse position
+def get_cell_coordinates(position, size, dimension):
+    spacing = dimension // size
+    x, y = position
+    return min(size - 1, y // spacing), min(size - 1, x // spacing)
 
-def reset_grid(grid):
+# Clear the grid to default state
+def clear_grid(grid):
     for row in grid:
-        for node in row:
-            node.reset()
+        for cell in row:
+            cell.reset()
 
-def main(win, width):
-    grid = make_grid(ROWS, width)
-
-    start = None
-    end = None
-
+# Main program logic
+def main_program(display, dimension):
+    grid = build_grid(GRID_SIZE, dimension)
+    start_node = None
+    end_node = None
     running = True
+
     while running:
-        draw(win, grid, ROWS, width)
+        render(display, grid, GRID_SIZE, dimension)
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
                 pygame.quit()
                 sys.exit()
 
-            # Left mouse click to set start, end, and barriers
+            # Mouse input for start, end, and barriers
             if pygame.mouse.get_pressed()[0]:
-                pos = pygame.mouse.get_pos()
-                row, col = get_clicked_pos(pos, ROWS, width)
+                position = pygame.mouse.get_pos()
+                row, col = get_cell_coordinates(position, GRID_SIZE, dimension)
 
-                # Ensure row and col are valid before accessing the grid
-                if 0 <= row < ROWS and 0 <= col < ROWS:
-                    node = grid[row][col]
-                    if not start and node != end:
-                        start = node
-                        start.make_start()
-                    elif not end and node != start:
-                        end = node
-                        end.make_end()
-                    elif node != end and node != start:
-                        node.make_barrier()
+                if 0 <= row < GRID_SIZE and 0 <= col < GRID_SIZE:
+                    current_node = grid[row][col]
+                    if not start_node and current_node != end_node:
+                        start_node = current_node
+                        start_node.make_start()
+                    elif not end_node and current_node != start_node:
+                        end_node = current_node
+                        end_node.make_end()
+                    elif current_node != start_node and current_node != end_node:
+                        current_node.make_barrier()
 
-            # Right mouse click to reset a node
+            # Mouse input to reset nodes
             elif pygame.mouse.get_pressed()[2]:
-                pos = pygame.mouse.get_pos()
-                row, col = get_clicked_pos(pos, ROWS, width)
+                position = pygame.mouse.get_pos()
+                row, col = get_cell_coordinates(position, GRID_SIZE, dimension)
 
-                # Ensure row and col are valid before accessing the grid
-                if 0 <= row < ROWS and 0 <= col < ROWS:
-                    node = grid[row][col]
-                    node.reset()
-                    if node == start:
-                        start = None
-                    elif node == end:
-                        end = None
+                if 0 <= row < GRID_SIZE and 0 <= col < GRID_SIZE:
+                    current_node = grid[row][col]
+                    current_node.reset()
+                    if current_node == start_node:
+                        start_node = None
+                    elif current_node == end_node:
+                        end_node = None
 
-            # Keyboard actions for running algorithms
+            # Keyboard input for algorithms and reset
             if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_SPACE and start and end:
+                if event.key == pygame.K_SPACE and start_node and end_node:
                     for row in grid:
-                        for node in row:
-                            node.update_neighbors(grid)
-                    a_star.a_star(lambda: draw(win, grid, ROWS, width), grid, start, end, speed=0.05)
+                        for cell in row:
+                            cell.update_neighbors(grid)
+                    a_star.a_star(lambda: render(display, grid, GRID_SIZE, dimension), grid, start_node, end_node, speed=0.1)
 
-                elif event.key == pygame.K_d and start and end:
+                elif event.key == pygame.K_d and start_node and end_node:
                     for row in grid:
-                        for node in row:
-                            node.update_neighbors(grid)
-                    dijkstra.dijkstra(lambda: draw(win, grid, ROWS, width), grid, start, end, speed=0.05)
+                        for cell in row:
+                            cell.update_neighbors(grid)
+                    dijkstra.dijkstra(lambda: render(display, grid, GRID_SIZE, dimension), grid, start_node, end_node, speed=0.1)
 
-                elif event.key == pygame.K_b and start and end:
+                elif event.key == pygame.K_b and start_node and end_node:
                     for row in grid:
-                        for node in row:
-                            node.update_neighbors(grid)
-                    bfs.bfs(lambda: draw(win, grid, ROWS, width), grid, start, end, speed=0.05)
+                        for cell in row:
+                            cell.update_neighbors(grid)
+                    bfs.bfs(lambda: render(display, grid, GRID_SIZE, dimension), grid, start_node, end_node, speed=0.1)
 
-                elif event.key == pygame.K_u and start and end:
+                elif event.key == pygame.K_u and start_node and end_node:
                     for row in grid:
-                        for node in row:
-                            node.update_neighbors(grid)
-                    ucs.ucs(lambda: draw(win, grid, ROWS, width), grid, start, end, speed=0.05)
+                        for cell in row:
+                            cell.update_neighbors(grid)
+                    ucs.ucs(lambda: render(display, grid, GRID_SIZE, dimension), grid, start_node, end_node, speed=0.1)
 
-                elif event.key == pygame.K_f and start and end:
+                elif event.key == pygame.K_f and start_node and end_node:
                     for row in grid:
-                        for node in row:
-                            node.update_neighbors(grid)
-                    dfs.dfs(lambda: draw(win, grid, ROWS, width), grid, start, end, speed=0.05)
+                        for cell in row:
+                            cell.update_neighbors(grid)
+                    dfs.dfs(lambda: render(display, grid, GRID_SIZE, dimension), grid, start_node, end_node, speed=0.1)
 
                 elif event.key == pygame.K_r:
-                    start = None
-                    end = None
-                    reset_grid(grid)
+                    start_node = None
+                    end_node = None
+                    clear_grid(grid)
 
     pygame.quit()
 
-main(WIN, WIDTH)
+main_program(SCREEN, SCREEN_SIZE)
